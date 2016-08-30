@@ -1,16 +1,24 @@
 package imageloader.my.imageloader.tool;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.ThumbnailUtils;
+import android.os.AsyncTask;
+import android.util.Log;
 import android.util.LruCache;
+import android.widget.BaseAdapter;
 import android.widget.ImageView;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import imageloader.my.imageloader.R;
 
 /**
  * Created by huangResplendent on 16/8/24.
@@ -31,6 +39,8 @@ public class ImageLoader {
         mDiskCache = new DiskCache();
     }
 
+
+
     /**
      * 显示图片
      *
@@ -46,24 +56,51 @@ public class ImageLoader {
             return;
         }
         imageview.setTag(url);
-        mExecutorService.submit(new Runnable() {
+        new AsyncTask<Integer, Integer, Bitmap>() {
             @Override
-            public void run() {
+            protected Bitmap doInBackground(Integer... integers) {
+                return downloadImage(url);
+            }
 
-
-                Bitmap bitmap = downloadImage(url);
+            @Override
+            protected void onPostExecute(Bitmap bitmap) {
+                super.onPostExecute(bitmap);
                 if (bitmap == null)
                     return;
                 if (imageview.getTag().equals(url)) {
+                    bitmap = ThumbnailUtils.extractThumbnail(bitmap, 51, 108);//显示缩略图，防止内存溢出
                     imageview.setImageBitmap(bitmap);
                 }
                 if (isUseDiskCache)
                     mDiskCache.putCache(url, bitmap);
                 else
                     mImageCahce.putCache(url, bitmap);
-
             }
-        });
+
+        }.executeOnExecutor(mExecutorService);
+
+
+        //书中在线程中加载图片的方式，是不能正常显示的
+//        mExecutorService.submit(new Runnable() {
+//            @Override
+//            public void run() {
+//
+//                Bitmap bitmap = downloadImage(url);
+//                if (bitmap == null)
+//                    return;
+//                if (imageview.getTag().equals(url)) {
+//                    Log.e("msg","进行显示");
+//                    bitmap = ThumbnailUtils.extractThumbnail(bitmap, 51, 108);//显示缩略图，防止内存溢出
+//                    imageview.setImageBitmap(bitmap);
+//                    adapter.notifyDataSetChanged();
+//                }
+//                if (isUseDiskCache)
+//                    mDiskCache.putCache(url, bitmap);
+//                else
+//                    mImageCahce.putCache(url, bitmap);
+//
+//            }
+//        });
 
     }
 
@@ -73,12 +110,14 @@ public class ImageLoader {
      * @param imageUrl
      * @return
      */
-    public Bitmap downloadImage(String imageUrl) {
+    private Bitmap downloadImage(String imageUrl) {
+
+
         Bitmap bitmap = null;
         try {
             URL url = new URL(imageUrl);
             HttpURLConnection http = (HttpURLConnection) url.openConnection();
-            BitmapFactory.decodeStream(http.getInputStream());
+            bitmap = BitmapFactory.decodeStream(http.getInputStream());
             http.disconnect();
         } catch (IOException e) {
             e.printStackTrace();
