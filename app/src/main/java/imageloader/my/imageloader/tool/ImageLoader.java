@@ -17,19 +17,30 @@ import java.util.concurrent.Executors;
  * 图片加载
  */
 public class ImageLoader {
+    //内存缓存
     private ImageCache mImageCahce;
-
+    //SD卡缓存
+    private DiskCache mDiskCache;
     //线程池，线程数量为CPU最大数量
     ExecutorService mExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    //是否使用SD卡缓存
+    private boolean isUseDiskCache = false;
 
     public ImageLoader() {
         mImageCahce = new ImageCache();
+        mDiskCache = new DiskCache();
     }
 
-
+    /**
+     * 显示图片
+     *
+     * @param url
+     * @param imageview
+     */
     public void displayImage(final String url, final ImageView imageview) {
 
-        Bitmap bitmap = mImageCahce.getCache(url);
+//       Bitmap bitmap = mImageCahce.getCache(url);
+        Bitmap bitmap = isUseDiskCache ? mDiskCache.getCache(url) : mImageCahce.getCache(url);
         if (bitmap != null) {
             imageview.setImageBitmap(bitmap);
             return;
@@ -46,14 +57,22 @@ public class ImageLoader {
                 if (imageview.getTag().equals(url)) {
                     imageview.setImageBitmap(bitmap);
                 }
-                mImageCahce.putCache(url, bitmap);
+                if (isUseDiskCache)
+                    mDiskCache.putCache(url, bitmap);
+                else
+                    mImageCahce.putCache(url, bitmap);
 
             }
         });
 
     }
 
-
+    /**
+     * 下载图片
+     *
+     * @param imageUrl
+     * @return
+     */
     public Bitmap downloadImage(String imageUrl) {
         Bitmap bitmap = null;
         try {
@@ -66,6 +85,11 @@ public class ImageLoader {
         }
         return bitmap;
 
+    }
+
+
+    public void setmDiskCache(boolean useDiskCache) {
+        isUseDiskCache = useDiskCache;
     }
 
 }
