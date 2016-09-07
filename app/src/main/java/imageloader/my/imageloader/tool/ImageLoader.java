@@ -29,16 +29,20 @@ public class ImageLoader {
     private ImageCache mImageCahce;
     //SD卡缓存
     private DiskCache mDiskCache;
+    //双缓存
+    private DoubleCache doubleCache;
+
     //线程池，线程数量为CPU最大数量
     ExecutorService mExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     //是否使用SD卡缓存
     private boolean isUseDiskCache = false;
+    //是否使用双缓存
+    private boolean isUseDoubleCache = false;
 
     public ImageLoader() {
         mImageCahce = new ImageCache();
         mDiskCache = new DiskCache();
     }
-
 
 
     /**
@@ -49,13 +53,22 @@ public class ImageLoader {
      */
     public void displayImage(final String url, final ImageView imageview) {
 
-//       Bitmap bitmap = mImageCahce.getCache(url);
-        Bitmap bitmap = isUseDiskCache ? mDiskCache.getCache(url) : mImageCahce.getCache(url);
+//       Bitmap bitmap = mImageCahce.getCache(url);//v1
+//        Bitmap bitmap = isUseDiskCache ? mDiskCache.getCache(url) : mImageCahce.getCache(url);//v2
+        Bitmap bitmap;
+        if (isUseDoubleCache) {
+            bitmap = doubleCache.getCache(url);
+        } else if (isUseDiskCache) {//使用SD卡缓存
+            bitmap = mDiskCache.getCache(url);
+        } else {
+            bitmap = mImageCahce.getCache(url);
+        }
         if (bitmap != null) {
             imageview.setImageBitmap(bitmap);
             return;
         }
         imageview.setTag(url);
+
         new AsyncTask<Integer, Integer, Bitmap>() {
             @Override
             protected Bitmap doInBackground(Integer... integers) {
@@ -71,7 +84,9 @@ public class ImageLoader {
                     bitmap = ThumbnailUtils.extractThumbnail(bitmap, 51, 108);//显示缩略图，防止内存溢出
                     imageview.setImageBitmap(bitmap);
                 }
-                if (isUseDiskCache)
+                if (isUseDoubleCache) {
+                    doubleCache.putCache(url, bitmap);
+                } else if (isUseDiskCache)
                     mDiskCache.putCache(url, bitmap);
                 else
                     mImageCahce.putCache(url, bitmap);
@@ -131,4 +146,7 @@ public class ImageLoader {
         isUseDiskCache = useDiskCache;
     }
 
+    public void setUseDoubleCache(boolean useDoubleCache) {
+        isUseDoubleCache = useDoubleCache;
+    }
 }
